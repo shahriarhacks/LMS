@@ -2,6 +2,8 @@ import { Model, Schema } from "mongoose";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { IUser } from "./user.interface";
+import jwt from "jsonwebtoken";
+import config from "../../../config";
 
 const emailRegexPattern: RegExp = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -64,8 +66,17 @@ userSchema.pre<IUser>("save", async function (next) {
   next();
 });
 
-// Compare password
+// Sign Access token
+userSchema.methods.SignAccessToken = function () {
+  return jwt.sign({ id: this._id }, config.JWT.access_secret as string);
+};
 
+// Sign Refresh token
+userSchema.methods.SignRefreshToken = function () {
+  return jwt.sign({ id: this._id }, config.JWT.refresh_secret as string);
+};
+
+// Compare password
 userSchema.methods.comparePassword = async function (
   entirePass: string
 ): Promise<boolean> {

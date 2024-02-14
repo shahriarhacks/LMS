@@ -4,7 +4,12 @@ import ErrorHandler from "../../../utils/errorHandler";
 import httpStatus from "http-status";
 import jwt from "jsonwebtoken";
 import User from "./user.model";
-import { IActivationRequest, IRegisterUserBody, IUser } from "./user.interface";
+import {
+  IActivationRequest,
+  ILoginRequest,
+  IRegisterUserBody,
+  IUser,
+} from "./user.interface";
 import config from "../../../config";
 import ejs from "ejs";
 import path from "path";
@@ -12,6 +17,7 @@ import sendMail from "../../../utils/sendMail";
 import sendResponse from "../../../shared/sendResponse";
 import { createActivationToken } from "./user.utils";
 import { activateUserServices } from "./user.services";
+import { sendToken } from "../../../utils/jwt";
 
 export const registerUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -88,6 +94,54 @@ export const activateUser = catchAsyncError(
         success: true,
         message: "User created successfully",
         data: user,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+// Login User
+export const loginUser = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password } = req.body as ILoginRequest;
+      if (!email || !password) {
+        return next(
+          new ErrorHandler(
+            "Please enter your email and password",
+            httpStatus.BAD_REQUEST
+          )
+        );
+      }
+      const user = await User.findOne({ email }).select("+password");
+      if (!user) {
+        return next(
+          new ErrorHandler("Invalid email or password", httpStatus.BAD_REQUEST)
+        );
+      }
+      const isPasswordMatch = await user.comparePassword(password);
+      if (!isPasswordMatch) {
+        return next(
+          new ErrorHandler("Invalid email or password", httpStatus.BAD_REQUEST)
+        );
+      }
+      sendToken(user, httpStatus.OK, res);
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.UNAUTHORIZED));
+    }
+  }
+);
+
+export const logoutUser = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.cookie("ac-token", "", { maxAge: 1 });
+      res.cookie("ref-token", "", { maxAge: 1 });
+      sendResponse(res, {
+        statusCode: httpStatus.OK,
+        success: true,
+        message: "User Logged Out Successfully",
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));

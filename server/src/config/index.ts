@@ -16,6 +16,10 @@ const config = {
   },
   JWT: {
     activation_secret: process.env.ACTIVATION_SECRET,
+    access_secret: process.env.ACCESS_SECRET,
+    refresh_secret: process.env.REFRESH_SECRET,
+    access_exp: process.env.ACCESS_EXP_IN,
+    refresh_exp: process.env.REFRESH_EXP_IN,
   },
   SMTP: {
     host: process.env.SMTP_HOST,
