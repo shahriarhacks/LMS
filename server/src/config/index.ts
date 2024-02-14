@@ -14,6 +14,17 @@ const config = {
     api_key: process.env.CLOUD_API_KEY,
     secret: process.env.CLOUD_SECRET,
   },
+  JWT: {
+    activation_secret: process.env.ACTIVATION_SECRET,
+  },
+  SMTP: {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    service: process.env.SMTP_SERVICE,
+    mail: process.env.SMTP_MAIL,
+    password: process.env.SMTP_PASSWORD,
+    pass: process.env.SMTP_PASS,
+  },
 };
 
 export default config;

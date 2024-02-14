@@ -13,3 +13,20 @@ export interface IUser extends Document {
   courses: Array<{ courseId: string }>;
   comparePassword: (password: string) => Promise<boolean>;
 }
+
+export interface IRegisterUserBody {
+  name: string;
+  email: string;
+  password: string;
+  avatar?: string;
+}
+
+export interface IActivationToken {
+  token: string;
+  activationCode: string;
+}
+
+export interface IActivationRequest {
+  token: string;
+  otp: string;
+}
