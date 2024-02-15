@@ -20,6 +20,8 @@ const config = {
     refresh_secret: process.env.REFRESH_SECRET,
     access_exp: process.env.ACCESS_EXP_IN,
     refresh_exp: process.env.REFRESH_EXP_IN,
+    jac_exp: process.env.JWT_AC_EXP_IN,
+    jrf_exp: process.env.JWT_RF_EXP_IN,
   },
   SMTP: {
     host: process.env.SMTP_HOST,
