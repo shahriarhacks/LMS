@@ -15,6 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Cookie Parser
 app.use(cookieParser());
+
 //Cross Origin Resource Sharing
 app.use(
   cors({
@@ -26,7 +27,7 @@ app.use(
 app.use("/api/v1", allRoutes);
 
 // Testing API or Health checking for server
-app.get("/health", (_req: Request, res: Response, _next: NextFunction) => {
+app.get("/health", (req: Request, res: Response, _next: NextFunction) => {
   sendResponse<null>(res, {
     statusCode: status.OK,
     success: true,

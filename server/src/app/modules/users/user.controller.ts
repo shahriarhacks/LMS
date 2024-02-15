@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { catchAsyncError } from "../../middleware/catchAsyncErrors";
 import ErrorHandler from "../../../utils/errorHandler";
 import httpStatus from "http-status";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import User from "./user.model";
 import {
   IActivationRequest,
@@ -18,6 +18,8 @@ import sendResponse from "../../../shared/sendResponse";
 import { createActivationToken } from "./user.utils";
 import { activateUserServices } from "./user.services";
 import { sendToken } from "../../../utils/jwt";
+import { redis } from "../../../utils/redis";
+import { tokenOptions } from "../../../shared/tokenOptions";
 
 export const registerUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -133,11 +135,14 @@ export const loginUser = catchAsyncError(
   }
 );
 
+// Logout user
 export const logoutUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.cookie("ac-token", "", { maxAge: 1 });
-      res.cookie("ref-token", "", { maxAge: 1 });
+      res.cookie("ac_token", "", { maxAge: 1 });
+      res.cookie("rf_token", "", { maxAge: 1 });
+      const uid = req.user?._id;
+      redis.del(uid);
       sendResponse(res, {
         statusCode: httpStatus.OK,
         success: true,
@@ -145,6 +150,66 @@ export const logoutUser = catchAsyncError(
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+// Update access token
+export const updateAccessToken = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const refresh_token = req.cookies.rf_token;
+      const decoded = jwt.verify(
+        refresh_token,
+        config.JWT.refresh_secret as string
+      ) as JwtPayload;
+      if (!decoded) {
+        return next(
+          new ErrorHandler(
+            "Could't find the refresh token",
+            httpStatus.FORBIDDEN
+          )
+        );
+      }
+      const session = await redis.get(decoded.id as string);
+      if (!session) {
+        return next(
+          new ErrorHandler("Session is expired", httpStatus.UNAUTHORIZED)
+        );
+      }
+      const user = JSON.parse(session);
+      const accessToken = jwt.sign(
+        { id: user._id },
+        config.JWT.access_secret as string,
+        {
+          expiresIn: config.JWT.jac_exp,
+        }
+      );
+      const refreshToken = jwt.sign(
+        { id: user._id },
+        config.JWT.refresh_secret as string,
+        {
+          expiresIn: config.JWT.jrf_exp,
+        }
+      );
+      res.cookie(
+        "ac_token",
+        accessToken,
+        tokenOptions(Number(config.JWT.access_exp))
+      );
+      res.cookie(
+        "rf_token",
+        refreshToken,
+        tokenOptions(Number(config.JWT.refresh_exp))
+      );
+      res.status(httpStatus.CREATED).json({
+        success: true,
+        message: "Access token generated successfully",
+        data: user,
+        accessToken,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.UNAUTHORIZED));
     }
   }
 );
