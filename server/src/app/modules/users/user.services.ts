@@ -1,4 +1,3 @@
-import { redis } from "../../../utils/redis";
 import { IUser } from "./user.interface";
 import User from "./user.model";
 
@@ -7,9 +6,12 @@ export const activateUserServices = async (user: Partial<IUser>) => {
   return result;
 };
 
-export const getUserInfoById = async (id: string) => {
-  const userJSON = await redis.get(id);
-  const result = JSON.parse(userJSON as string);
+export const getSingleUserInfo = async (id: string) => {
+  const user = await User.findOne({ _id: id }).select("+password");
+  return user;
+};
 
+export const getUserInfoById = async (id: string) => {
+  const result = await User.findOne({ _id: id }).select("-password");
   return result;
 };
