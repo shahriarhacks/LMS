@@ -8,7 +8,9 @@ interface IModuleRouter {
   route: Router;
 }
 
-const moduleRoutes: IModuleRouter[] = [{ path: "/auth", route: userRoute }];
+const moduleRoutes: IModuleRouter[] = [
+  { path: "/auth/user", route: userRoute },
+];
 
 //Call All route dynamically
 moduleRoutes.forEach((moduleRoute: IModuleRouter) =>

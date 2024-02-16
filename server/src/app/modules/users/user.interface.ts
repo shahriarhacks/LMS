@@ -36,3 +36,13 @@ export interface ILoginRequest {
   email: string;
   password: string;
 }
+
+export interface ISocialAuthBody {
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface IUpdateUserEmail {
+  email: string;
+}
