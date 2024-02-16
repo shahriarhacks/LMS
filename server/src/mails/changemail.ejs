@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Activation Email by LMS*SAST</title>
+    <title>Updating email confirmation OTP by LMS*SAST</title>
     <style type="text/css">
       /* Base */
       body {
@@ -67,13 +67,15 @@
   <body>
     <div class="email-wrapper">
       <header class="email-header">
-        <h1>Welcome to LMS*SAST</h1>
+        <h1>Updating email address OTP from LMS*SAST</h1>
       </header>
       <main class="email-body">
-        <p>Hello <%= user.name%>!</p>
+        <p>Hi <%= user.name%>!</p>
         <p>
-          Thank you for registering LMS*SAST. To activate your account, please
-          use the following activation OTP code:
+          Thank you for requesting to update your email in LMS*SAST. To activate
+          your new email address from your existing email:
+          <span style="color: rgba(255, 0, 0, 0.7)"><%=user.email%></span>,
+          please use the following activation OTP code:
         </p>
         <h2><%= activationCode%></h2>
         <p>
@@ -81,8 +83,8 @@
           minutes.
         </p>
         <p>
-          If you did not register for a LMS*SAST account then you can ignore
-          this mail.
+          If you did not update your email address for your LMS*SAST account
+          then you can ignore this mail.
         </p>
       </main>
       <footer class="email-footer">

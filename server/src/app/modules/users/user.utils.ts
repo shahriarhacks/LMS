@@ -17,3 +17,19 @@ export function createActivationToken(
 
   return { token, activationCode };
 }
+
+export const createChangeEmailToken = (
+  user: Partial<IRegisterUserBody>
+): IActivationToken => {
+  const activationCode: string = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+  const token: string = jwt.sign(
+    { user, activationCode },
+    config.JWT.email_change_secret as string,
+    {
+      expiresIn: "5m",
+    }
+  );
+  return { token, activationCode };
+};
