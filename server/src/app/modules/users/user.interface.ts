@@ -46,3 +46,8 @@ export interface ISocialAuthBody {
 export interface IUpdateUserEmail {
   email: string;
 }
+
+export interface IUpdatePassword {
+  oldPassword: string;
+  newPassword: string;
+}

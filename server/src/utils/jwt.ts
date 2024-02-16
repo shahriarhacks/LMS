@@ -3,8 +3,13 @@ import { IUser } from "../app/modules/users/user.interface";
 import config from "../config";
 import { redis } from "./redis";
 import { tokenOptions } from "../shared/tokenOptions";
+import { getUserInfoById } from "../app/modules/users/user.services";
 
-export const sendToken = (user: IUser, statusCode: number, res: Response) => {
+export const sendToken = async (
+  user: IUser,
+  statusCode: number,
+  res: Response
+) => {
   const accessToken = user.SignAccessToken();
   const refreshToken = user.SignRefreshToken();
 
@@ -21,11 +26,11 @@ export const sendToken = (user: IUser, statusCode: number, res: Response) => {
     refreshToken,
     tokenOptions(Number(config.JWT.refresh_exp))
   );
-
+  const dbUser = await getUserInfoById(user._id);
   res.status(statusCode).json({
     success: true,
     message: "User Login Successfully",
-    data: user,
+    data: dbUser,
     accessToken,
   });
 };

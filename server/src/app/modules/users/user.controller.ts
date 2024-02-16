@@ -9,6 +9,7 @@ import {
   ILoginRequest,
   IRegisterUserBody,
   ISocialAuthBody,
+  IUpdatePassword,
   IUpdateUserEmail,
   IUser,
 } from "./user.interface";
@@ -18,7 +19,11 @@ import path from "path";
 import sendMail from "../../../utils/sendMail";
 import sendResponse from "../../../shared/sendResponse";
 import { createActivationToken, createChangeEmailToken } from "./user.utils";
-import { activateUserServices, getUserInfoById } from "./user.services";
+import {
+  activateUserServices,
+  getSingleUserInfo,
+  getUserInfoById,
+} from "./user.services";
 import { sendToken } from "../../../utils/jwt";
 import { redis } from "../../../utils/redis";
 import { tokenOptions } from "../../../shared/tokenOptions";
@@ -92,12 +97,12 @@ export const activateUser = catchAsyncError(
         );
       }
       const user = await activateUserServices({ name, email, password });
-
+      const dbUser = await getUserInfoById(user._id);
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
         message: "User created successfully",
-        data: user,
+        data: dbUser,
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
@@ -110,7 +115,7 @@ export const loginUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password } = req.body as ILoginRequest;
-      if (!email || !password) {
+      if (!email && !password) {
         return next(
           new ErrorHandler(
             "Please enter your email and password",
@@ -179,7 +184,7 @@ export const updateAccessToken = catchAsyncError(
           new ErrorHandler("Session is expired", httpStatus.UNAUTHORIZED)
         );
       }
-      const user = JSON.parse(session);
+      const user = JSON.parse(session) as IUser;
       const accessToken = jwt.sign(
         { id: user._id },
         config.JWT.access_secret as string,
@@ -195,6 +200,7 @@ export const updateAccessToken = catchAsyncError(
         }
       );
       req.user = user;
+      const dbUser = await getUserInfoById(user._id);
       res.cookie(
         "ac_token",
         accessToken,
@@ -208,7 +214,7 @@ export const updateAccessToken = catchAsyncError(
       res.status(httpStatus.CREATED).json({
         success: true,
         message: "Access token generated successfully",
-        data: user,
+        data: dbUser,
         accessToken,
       });
     } catch (error: any) {
@@ -222,7 +228,7 @@ export const getUserInfo = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?._id;
-      const user = await getUserInfoById(userId);
+      const user = await userId;
       sendResponse(res, {
         statusCode: httpStatus.OK,
         success: true,
@@ -312,18 +318,87 @@ export const activateUpdateEmail = catchAsyncError(
       }
       const { email } = newUser.user;
 
-      const dbUser = await User.findById(req.user?._id);
-      if (!dbUser) {
+      const user = await getSingleUserInfo(req.user?._id);
+      if (!user) {
         return next(new ErrorHandler("User not found", httpStatus.NOT_FOUND));
       }
-      (dbUser as IUser).email = email as string;
-      dbUser.save();
-      redis.set(req.user?._id, JSON.stringify(dbUser));
-      req.user = dbUser;
+      (user as IUser).email = email as string;
+
+      await user.save();
+      await redis.set(req.user?._id, JSON.stringify(user));
+      req.user = user;
+      const dbUser = await getUserInfoById(user._id);
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
-        message: "User created successfully",
+        message: "User email updated successfully",
+        data: dbUser,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+// Update user information
+export const updateUserInfo = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name } = req.body as { name: string };
+      const uid = req.user?._id;
+      const user = await getUserInfoById(uid);
+      if (user && name) {
+        user.name = name;
+      }
+      await user?.save();
+      await redis.set(uid, JSON.stringify(user));
+      req.user = user as IUser;
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "User info updated successfully",
+        data: user,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+export const updatePassword = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { oldPassword, newPassword } = req.body as IUpdatePassword;
+      if (!oldPassword && !newPassword) {
+        return next(
+          new ErrorHandler(
+            "Please enter old and new password",
+            httpStatus.BAD_REQUEST
+          )
+        );
+      }
+
+      const user = await getSingleUserInfo(req.user?._id);
+      console.log(user);
+      if (!user) {
+        return next(new ErrorHandler("Invalid user", httpStatus.NOT_FOUND));
+      }
+      if (user?.password === undefined) {
+        return next(new ErrorHandler("Invalid user", httpStatus.NOT_FOUND));
+      }
+      const isPasswordMatch = user.comparePassword(oldPassword);
+      if (!isPasswordMatch) {
+        return next(
+          new ErrorHandler("Password not correct", httpStatus.BAD_REQUEST)
+        );
+      }
+      user.password = newPassword;
+      await user.save();
+      const dbUser = await getUserInfoById(user._id);
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Password updated successfully",
         data: dbUser,
       });
     } catch (error: any) {
