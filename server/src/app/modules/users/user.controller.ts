@@ -6,19 +6,28 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import User from "./user.model";
 import {
   IActivationRequest,
+  IForgotPassword,
   ILoginRequest,
   IRegisterUserBody,
   ISocialAuthBody,
+  IUpdateAvatar,
   IUpdatePassword,
   IUpdateUserEmail,
   IUser,
+  IVerifyOTPConfirm,
 } from "./user.interface";
 import config from "../../../config";
 import ejs from "ejs";
 import path from "path";
 import sendMail from "../../../utils/sendMail";
 import sendResponse from "../../../shared/sendResponse";
-import { createActivationToken, createChangeEmailToken } from "./user.utils";
+import {
+  createActivationToken,
+  createForgotToken,
+  createUpdateEmailToken,
+  signNewTokenForFP,
+} from "./user.utils";
+import cloudinary from "cloudinary";
 import {
   activateUserServices,
   getSingleUserInfo,
@@ -273,7 +282,7 @@ export const updateUserEmail = catchAsyncError(
             new ErrorHandler("Email already exist", httpStatus.CONFLICT)
           );
         }
-        const activationToken = createChangeEmailToken({ email });
+        const activationToken = createUpdateEmailToken({ email });
         const activationCode = activationToken.activationCode;
         const data = {
           user: { name: user.name, email: user.email },
@@ -379,7 +388,6 @@ export const updatePassword = catchAsyncError(
       }
 
       const user = await getSingleUserInfo(req.user?._id);
-      console.log(user);
       if (!user) {
         return next(new ErrorHandler("Invalid user", httpStatus.NOT_FOUND));
       }
@@ -394,12 +402,177 @@ export const updatePassword = catchAsyncError(
       }
       user.password = newPassword;
       await user.save();
+      await redis.set(req.user?._id, JSON.stringify(user));
       const dbUser = await getUserInfoById(user._id);
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
         message: "Password updated successfully",
         data: dbUser,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+// Update avatar
+export const updateAvatar = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { avatar } = req.body as IUpdateAvatar;
+      const uid = req.user?._id;
+      const user = await getUserInfoById(uid);
+      if (avatar && user) {
+        if (user.avatar.public_id) {
+          await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+          const myCloud = await cloudinary.v2.uploader.upload(avatar, {
+            folder: "avatars",
+            width: 150,
+          });
+          user.avatar = {
+            public_id: myCloud.public_id,
+            url: myCloud.secure_url,
+          };
+        } else {
+          const myCloud = await cloudinary.v2.uploader.upload(avatar, {
+            folder: "avatars",
+            width: 150,
+          });
+          user.avatar = {
+            public_id: myCloud.public_id,
+            url: myCloud.secure_url,
+          };
+        }
+      }
+      await user?.save();
+      await redis.set(uid, JSON.stringify(user));
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Avatar updated successfully",
+        data: user,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+// Forgot Password
+export const forgotPasswordRequest = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body as IForgotPassword;
+      if (!email) {
+        return next(
+          new ErrorHandler(
+            "Please enter your user email",
+            httpStatus.BAD_REQUEST
+          )
+        );
+      }
+      const user = await User.findOne({ email });
+      if (!user) {
+        return next(
+          new ErrorHandler("Invalid email address", httpStatus.NOT_FOUND)
+        );
+      }
+      const activationToken = createForgotToken({ email, id: user._id });
+      const activationCode = activationToken.activationCode;
+      const data = {
+        user: { name: user.name, email: user.email },
+        activationCode,
+      };
+      try {
+        await sendMail({
+          email: email,
+          subject: "Forgot password OTP",
+          template: "fpass.ejs",
+          data,
+        });
+        res.status(httpStatus.CREATED).json({
+          success: true,
+          message: `Please check your email: ${email} to forgot your password`,
+          activationToken: activationToken.token,
+        });
+      } catch (error: any) {
+        return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+      }
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+export const forgotPasswordVerify = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token, otp } = req.body as IActivationRequest;
+      const newUser: { user: Partial<IUser>; activationCode: string } =
+        jwt.verify(token, config.JWT.forgot_pass_secret as string) as {
+          user: Partial<IUser>;
+          activationCode: string;
+        };
+
+      if (newUser.activationCode !== otp) {
+        return next(new ErrorHandler("Invalid OTP", httpStatus.UNAUTHORIZED));
+      }
+      const { id } = newUser.user;
+
+      const user = await getSingleUserInfo(id);
+      if (!user) {
+        return next(
+          new ErrorHandler(
+            "Something went wrong! User not found",
+            httpStatus.INTERNAL_SERVER_ERROR
+          )
+        );
+      }
+      const fpVerifyToken = signNewTokenForFP({ id, verified: true });
+      res.status(httpStatus.OK).json({
+        success: true,
+        message: "OTP verified",
+        fpVerifyToken,
+      });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
+    }
+  }
+);
+
+export const saveForgotPassword = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token, password } = req.body as {
+        token: string;
+        password: string;
+      };
+      const decoded = jwt.verify(
+        token,
+        config.JWT.fp_verify_secret as string
+      ) as { user: IVerifyOTPConfirm };
+      console.log(decoded);
+      const { verified, id } = decoded.user;
+      if (!verified) {
+        return next(
+          new ErrorHandler(
+            "Server verified not confirmed",
+            httpStatus.UNAUTHORIZED
+          )
+        );
+      }
+      const user = await getSingleUserInfo(id);
+      if (!user) {
+        return next(new ErrorHandler("User not found", httpStatus.NOT_FOUND));
+      }
+      user.password = password;
+      await user.save();
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Password updated successfully",
+        data: user,
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));

@@ -17,6 +17,8 @@ const config = {
   JWT: {
     activation_secret: process.env.ACTIVATION_SECRET,
     email_change_secret: process.env.CHANGING_SECRET,
+    forgot_pass_secret: process.env.FORGOT_PASS_SECRET,
+    fp_verify_secret: process.env.FP_VERIFY_SECRET,
     access_secret: process.env.ACCESS_SECRET,
     refresh_secret: process.env.REFRESH_SECRET,
     access_exp: process.env.ACCESS_EXP_IN,
