@@ -21,8 +21,13 @@ export interface IRegisterUserBody {
   email: string;
   password: string;
   avatar?: string;
+  id?: string;
 }
 
+export interface IVerifyOTPConfirm {
+  id: string;
+  verified: boolean;
+}
 export interface IActivationToken {
   token: string;
   activationCode: string;
@@ -50,4 +55,11 @@ export interface IUpdateUserEmail {
 export interface IUpdatePassword {
   oldPassword: string;
   newPassword: string;
+}
+
+export interface IUpdateAvatar {
+  avatar: string;
+}
+export interface IForgotPassword {
+  email: string;
 }
