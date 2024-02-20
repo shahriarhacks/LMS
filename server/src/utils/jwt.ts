@@ -14,7 +14,6 @@ export const sendToken = async (
   const refreshToken = user.SignRefreshToken();
 
   //   Upload session to Redis
-  redis.set(user._id, JSON.stringify(user) as any);
 
   res.cookie(
     "ac_token",
@@ -27,6 +26,7 @@ export const sendToken = async (
     tokenOptions(Number(config.JWT.refresh_exp))
   );
   const dbUser = await getUserInfoById(user._id);
+  redis.set(user._id, JSON.stringify(dbUser) as any);
   res.status(statusCode).json({
     success: true,
     message: "User Login Successfully",

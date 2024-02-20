@@ -209,7 +209,7 @@ export const updateAccessToken = catchAsyncError(
         }
       );
       req.user = user;
-      const dbUser = await getUserInfoById(user._id);
+      const catchUser = await redis.get(user._id);
       res.cookie(
         "ac_token",
         accessToken,
@@ -223,7 +223,7 @@ export const updateAccessToken = catchAsyncError(
       res.status(httpStatus.CREATED).json({
         success: true,
         message: "Access token generated successfully",
-        data: dbUser,
+        data: catchUser,
         accessToken,
       });
     } catch (error: any) {
@@ -237,7 +237,7 @@ export const getUserInfo = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?._id;
-      const user = await userId;
+      const user = await redis.get(userId);
       sendResponse(res, {
         statusCode: httpStatus.OK,
         success: true,
@@ -274,7 +274,7 @@ export const updateUserEmail = catchAsyncError(
     try {
       const { email } = req.body as IUpdateUserEmail;
       const uid = req.user?._id;
-      const user = await User.findById(uid);
+      const user = await getUserInfoById(uid);
       if (user && email) {
         const isEmailExist = await User.findOne({ email });
         if (isEmailExist) {
@@ -334,14 +334,15 @@ export const activateUpdateEmail = catchAsyncError(
       (user as IUser).email = email as string;
 
       await user.save();
-      await redis.set(req.user?._id, JSON.stringify(user));
       req.user = user;
       const dbUser = await getUserInfoById(user._id);
+      await redis.set(req.user?._id, JSON.stringify(dbUser));
+      const catchUser = await redis.get(req.user?._id);
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
         message: "User email updated successfully",
-        data: dbUser,
+        data: catchUser,
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
@@ -402,13 +403,12 @@ export const updatePassword = catchAsyncError(
       }
       user.password = newPassword;
       await user.save();
-      await redis.set(req.user?._id, JSON.stringify(user));
-      const dbUser = await getUserInfoById(user._id);
+      const catchUser = await redis.get(user._id);
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
         message: "Password updated successfully",
-        data: dbUser,
+        data: catchUser,
       });
     } catch (error: any) {
       return next(new ErrorHandler(error.message, httpStatus.BAD_REQUEST));
@@ -552,7 +552,6 @@ export const saveForgotPassword = catchAsyncError(
         token,
         config.JWT.fp_verify_secret as string
       ) as { user: IVerifyOTPConfirm };
-      console.log(decoded);
       const { verified, id } = decoded.user;
       if (!verified) {
         return next(

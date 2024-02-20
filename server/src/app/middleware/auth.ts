@@ -14,7 +14,7 @@ export const isAuthenticated = catchAsyncError(
       if (!accessToken) {
         return next(
           new ErrorHandler(
-            "Please login to access these resource",
+            "Please login to access this resource",
             httpStatus.UNAUTHORIZED
           )
         );
