@@ -1,15 +1,16 @@
 import { Document } from "mongoose";
+import { IUser } from "../users/user.interface";
 
-export interface IComment extends Document {
-  user: object;
-  comment: string;
-  commentReplies?: IComment[];
+export interface IQuestion extends Document {
+  user: IUser;
+  question: string;
+  questionReplies?: IQuestion[];
 }
 export interface IReview extends Document {
-  user: object;
+  user: IUser;
   rating: number;
   comment: string;
-  commentReplies: IComment[];
+  commentReplies: IQuestion[];
 }
 export interface ILink extends Document {
   title: string;
@@ -24,7 +25,7 @@ export interface ICourseData extends Document {
   videoPlayer: string;
   links: ILink[];
   suggestion: string;
-  questions: IComment[];
+  questions: IQuestion[];
 }
 export interface ICourse extends Document {
   name: string;
@@ -44,4 +45,10 @@ export interface ICourse extends Document {
   courseData: ICourseData[];
   ratings?: number;
   purchased?: number;
+}
+
+export interface IAddQuestionData {
+  question: string;
+  courseId: string;
+  contentId: string;
 }

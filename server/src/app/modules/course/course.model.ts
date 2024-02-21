@@ -1,11 +1,17 @@
 import { Model, Schema, model } from "mongoose";
 import {
-  IComment,
   ICourse,
   ICourseData,
   ILink,
+  IQuestion,
   IReview,
 } from "./course.interface";
+
+const commentSchema = new Schema<IQuestion>({
+  user: Object,
+  question: String,
+  questionReplies: [Object],
+});
 
 const reviewSchema = new Schema<IReview>({
   user: Object,
@@ -20,12 +26,6 @@ const reviewSchema = new Schema<IReview>({
 const linkSchema = new Schema<ILink>({
   title: String,
   url: String,
-});
-
-const commentSchema = new Schema<IComment>({
-  user: Object,
-  comment: String,
-  commentReplies: [Object],
 });
 
 const courseDataSchema = new Schema<ICourseData>({

@@ -2,7 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import cloudinary from "cloudinary";
 import { catchAsyncError } from "../../middleware/catchAsyncErrors";
 import ErrorHandler from "../../../utils/errorHandler";
-import httpStatus from "http-status";
+import httpStatus, { NOT_FOUND } from "http-status";
 import {
   createCourseService,
   editCourseService,
@@ -11,8 +11,9 @@ import {
   getSingleCourseService,
 } from "./course.service";
 import sendResponse from "../../../shared/sendResponse";
-import { ICourse } from "./course.interface";
+import { IAddQuestionData, ICourse, ICourseData } from "./course.interface";
 import { redis } from "../../../utils/redis";
+import mongoose from "mongoose";
 
 // Create Course
 export const createCourse = catchAsyncError(
@@ -166,6 +167,66 @@ export const getCourseByUser = catchAsyncError(
         success: true,
         message: "Content retrieve successfully",
         data: content,
+      });
+    } catch (error: any) {
+      return next(
+        new ErrorHandler(error.message, httpStatus.INTERNAL_SERVER_ERROR)
+      );
+    }
+  }
+);
+
+// Add question on course
+export const addQuestion = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { question, contentId, courseId } = req.body as IAddQuestionData;
+
+      if (!question) {
+        return next(
+          new ErrorHandler(
+            "Please add a question to ask",
+            httpStatus.BAD_REQUEST
+          )
+        );
+      }
+
+      const course = await getCourseByUserService(courseId);
+      if (!course) {
+        return next(new ErrorHandler("Course not exist", httpStatus.NOT_FOUND));
+      }
+      if (!mongoose.Types.ObjectId.isValid(contentId)) {
+        return next(
+          new ErrorHandler("Invalid content ID", httpStatus.NOT_FOUND)
+        );
+      }
+      const courseContent = course?.courseData?.find((item: ICourseData) =>
+        item._id.equals(contentId)
+      );
+      if (!courseContent) {
+        return next(
+          new ErrorHandler(
+            "Could't find any course content",
+            httpStatus.NOT_FOUND
+          )
+        );
+      }
+      // create new Question
+      const newQuestion = {
+        user: req.user,
+        question,
+        questionReplies: [],
+      };
+      courseContent.questions.push(newQuestion as any);
+
+      //Save the updated course on redis
+      await redis.set(courseId, JSON.stringify(course));
+      await course?.save();
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Question added successfully",
+        data: course,
       });
     } catch (error: any) {
       return next(

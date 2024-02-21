@@ -64,7 +64,7 @@ export const registerUser = catchAsyncError(
       try {
         await sendMail({
           email: user.email,
-          subject: "Account activation OTP",
+          subject: `Account activation OTP: ${activationCode}`,
           template: "mail.ejs",
           data,
         });
@@ -291,7 +291,7 @@ export const updateUserEmail = catchAsyncError(
         try {
           await sendMail({
             email: email,
-            subject: "Updating email address request OTP",
+            subject: `Updating email address request OTP: ${activationCode}`,
             template: "changemail.ejs",
             data,
           });
@@ -487,7 +487,7 @@ export const forgotPasswordRequest = catchAsyncError(
       try {
         await sendMail({
           email: email,
-          subject: "Forgot password OTP",
+          subject: `Forgot password OTP: ${activationCode}`,
           template: "fpass.ejs",
           data,
         });

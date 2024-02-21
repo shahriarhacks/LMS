@@ -1,6 +1,7 @@
 import express from "express";
 import { authorizedRoles, isAuthenticated } from "../../middleware/auth";
 import {
+  addQuestion,
   createCourse,
   editCourse,
   getAllCourse,
@@ -19,6 +20,7 @@ router.post(
 
 router.get("/all", getAllCourse);
 
+router.patch("/add-question", isAuthenticated, addQuestion);
 router.patch(
   "/edit/:id",
   isAuthenticated,
