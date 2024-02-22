@@ -4,13 +4,28 @@ import {
   ICourseData,
   ILink,
   IQuestion,
+  IReplyQuestion,
   IReview,
 } from "./course.interface";
 
-const commentSchema = new Schema<IQuestion>({
-  user: Object,
+const replySchema = new Schema<IReplyQuestion>({
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  answer: {
+    type: String,
+    required: true,
+  },
+});
+
+const questionSchema = new Schema<IQuestion>({
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
   question: String,
-  questionReplies: [Object],
+  questionReplies: [replySchema],
 });
 
 const reviewSchema = new Schema<IReview>({
@@ -37,7 +52,7 @@ const courseDataSchema = new Schema<ICourseData>({
   videoPlayer: String,
   links: [linkSchema],
   suggestion: String,
-  questions: [commentSchema],
+  questions: [questionSchema],
 });
 
 const courseSchema = new Schema<ICourse>(

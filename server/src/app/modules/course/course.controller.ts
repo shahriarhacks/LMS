@@ -11,9 +11,17 @@ import {
   getSingleCourseService,
 } from "./course.service";
 import sendResponse from "../../../shared/sendResponse";
-import { IAddQuestionData, ICourse, ICourseData } from "./course.interface";
+import {
+  IAddAnswerData,
+  IAddQuestionData,
+  ICourse,
+  ICourseData,
+} from "./course.interface";
 import { redis } from "../../../utils/redis";
 import mongoose from "mongoose";
+import { IUser } from "../users/user.interface";
+import { stringify } from "querystring";
+import sendMail from "../../../utils/sendMail";
 
 // Create Course
 export const createCourse = catchAsyncError(
@@ -213,19 +221,104 @@ export const addQuestion = catchAsyncError(
       }
       // create new Question
       const newQuestion = {
-        user: req.user,
+        user: req.user?._id,
         question,
         questionReplies: [],
       };
       courseContent.questions.push(newQuestion as any);
 
-      //Save the updated course on redis
-      await redis.set(courseId, JSON.stringify(course));
       await course?.save();
+      await redis.set(courseId, JSON.stringify(course));
+
       sendResponse(res, {
         statusCode: httpStatus.CREATED,
         success: true,
         message: "Question added successfully",
+        data: course,
+      });
+    } catch (error: any) {
+      return next(
+        new ErrorHandler(error.message, httpStatus.INTERNAL_SERVER_ERROR)
+      );
+    }
+  }
+);
+
+//Add answer in course question
+export const addAnswer = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { answer, courseId, contentId, questionId }: IAddAnswerData =
+        req.body;
+      const course = await getCourseByUserService(courseId);
+      if (!course) {
+        return next(new ErrorHandler("Course not find", httpStatus.NOT_FOUND));
+      }
+
+      if (!course) {
+        return next(new ErrorHandler("Course not exist", httpStatus.NOT_FOUND));
+      }
+      if (!mongoose.Types.ObjectId.isValid(contentId)) {
+        return next(
+          new ErrorHandler("Invalid content ID", httpStatus.NOT_FOUND)
+        );
+      }
+      const courseContent = course?.courseData?.find((item: ICourseData) =>
+        item._id.equals(contentId)
+      );
+      if (!courseContent) {
+        return next(
+          new ErrorHandler(
+            "Could't find any course content",
+            httpStatus.NOT_FOUND
+          )
+        );
+      }
+
+      const question = courseContent?.questions?.find((item: any) =>
+        item._id.equals(questionId)
+      );
+      if (!question) {
+        return next(
+          new ErrorHandler("Question are not valid", httpStatus.NOT_FOUND)
+        );
+      }
+      // Create new answer object
+      const newAnswer = {
+        user: req.user?._id,
+        answer,
+      };
+      question.questionReplies?.push(newAnswer as any);
+
+      await course.save();
+      await redis.set(courseId, JSON.stringify(course));
+
+      if (req.user?._id === question.user?._id) {
+        // create a notifications
+      } else {
+        const data = {
+          name: (question.user as IUser).name,
+          title: courseContent.title,
+        };
+
+        try {
+          await sendMail({
+            email: (question.user as IUser).email,
+            subject: `Question reply for ${courseContent.title}`,
+            template: "reply.ejs",
+            data,
+          });
+        } catch (error: any) {
+          return next(
+            new ErrorHandler(error.message, httpStatus.INTERNAL_SERVER_ERROR)
+          );
+        }
+      }
+
+      sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+        success: true,
+        message: "Question reply done",
         data: course,
       });
     } catch (error: any) {

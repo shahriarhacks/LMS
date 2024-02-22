@@ -1,10 +1,15 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 import { IUser } from "../users/user.interface";
 
+export interface IReplyQuestion {
+  user: Types.ObjectId | Partial<IUser>;
+  answer: string;
+}
+
 export interface IQuestion extends Document {
-  user: IUser;
+  user: Types.ObjectId | IUser;
   question: string;
-  questionReplies?: IQuestion[];
+  questionReplies?: IReplyQuestion[];
 }
 export interface IReview extends Document {
   user: IUser;
@@ -51,4 +56,11 @@ export interface IAddQuestionData {
   question: string;
   courseId: string;
   contentId: string;
+}
+
+export interface IAddAnswerData {
+  answer: string;
+  courseId: string;
+  contentId: string;
+  questionId: string;
 }

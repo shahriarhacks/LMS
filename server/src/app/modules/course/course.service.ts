@@ -16,9 +16,20 @@ export const editCourseService = async (id: string, data: Partial<ICourse>) => {
 };
 
 export const getSingleCourseService = async (id: String) => {
-  return await Course.findById(id).select(
-    "-courseData.videoUrl -courseData.suggestion -courseData.links -courseData.questions"
-  );
+  return await Course.findById(id)
+    .select("-courseData.videoUrl -courseData.suggestion -courseData.links")
+    .populate({
+      path: "courseData",
+      populate: [
+        {
+          path: "questions.user",
+        },
+        {
+          path: "questions.questionReplies.user",
+          model: "User",
+        },
+      ],
+    });
 };
 
 export const getAllCourseService = async () => {
@@ -27,5 +38,16 @@ export const getAllCourseService = async () => {
   );
 };
 export const getCourseByUserService = async (id: string) => {
-  return await Course.findById(id);
+  return await Course.findById(id).populate({
+    path: "courseData",
+    populate: [
+      {
+        path: "questions.user",
+      },
+      {
+        path: "questions.questionReplies.user",
+        model: "User",
+      },
+    ],
+  });
 };
